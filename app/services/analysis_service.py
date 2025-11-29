@@ -45,7 +45,7 @@ class AnalysisService:
             objections=result.objections,
             action_items=result.action_items,
             follow_up_message=result.follow_up_message,
-            metadata=result.metadata,
+            extra_metadata=result.metadata,
             created_at=datetime.utcnow(),
         )
 

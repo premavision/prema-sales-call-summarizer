@@ -2,7 +2,8 @@ fastapi
 uvicorn[standard]
 sqlmodel
 sqlalchemy
-pydantic
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
 python-multipart
 openai
 streamlit

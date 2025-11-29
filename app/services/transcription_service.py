@@ -39,7 +39,7 @@ class TranscriptionService:
             text=result.text,
             language=result.language,
             confidence=result.confidence,
-            metadata=result.metadata,
+            extra_metadata=result.metadata,
             created_at=datetime.utcnow(),
         )
         call.status = CallStatus.TRANSCRIBED

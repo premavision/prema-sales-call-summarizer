@@ -50,7 +50,9 @@ async def create_call(
     if participants:
         participant_list = [p.strip() for p in participants.split(",") if p.strip()]
 
-    filename = f"{uuid.uuid4()}-{audio_file.filename}"
+    # Validate and save file with security checks
+    original_filename = audio_file.filename or "audio"
+    filename = f"{uuid.uuid4()}-{original_filename}"
     audio_path = save_audio_file(filename, audio_file.file)
 
     call_data = CallCreate(
@@ -65,7 +67,7 @@ async def create_call(
     )
     call_service = CallService(session)
     call = call_service.create_call(call_data, audio_path=audio_path)
-    return CallRead.from_orm(call)
+    return CallRead.model_validate(call)
 
 
 @router.get("/calls", response_model=list[CallRead])
@@ -75,7 +77,7 @@ async def list_calls(
 ) -> list[CallRead]:
     call_service = CallService(session)
     calls = call_service.list_calls(status=status)
-    return [CallRead.from_orm(c) for c in calls]
+    return [CallRead.model_validate(c) for c in calls]
 
 
 @router.get("/calls/{call_id}", response_model=CallDetail)
@@ -91,12 +93,12 @@ async def get_call_detail(call_id: int, session: Session = Depends(get_db_sessio
     logs = session.exec(select(CRMSyncLog).where(CRMSyncLog.call_id == call_id)).all()
 
     return CallDetail(
-        call=CallRead.from_orm(call),
-        transcript=TranscriptRead.from_orm(transcript) if transcript else None,
-        analysis=AnalysisRead.from_orm(analysis) if analysis else None,
-        crm_notes=[CRMNoteRead.from_orm(n) for n in notes],
-        crm_tasks=[CRMTaskRead.from_orm(t) for t in tasks],
-        crm_sync_logs=[CRMSyncLogRead.from_orm(l) for l in logs],
+        call=CallRead.model_validate(call),
+        transcript=TranscriptRead.model_validate(transcript) if transcript else None,
+        analysis=AnalysisRead.model_validate(analysis) if analysis else None,
+        crm_notes=[CRMNoteRead.model_validate(n) for n in notes],
+        crm_tasks=[CRMTaskRead.model_validate(t) for t in tasks],
+        crm_sync_logs=[CRMSyncLogRead.model_validate(l) for l in logs],
     )
 
 
@@ -109,7 +111,7 @@ async def transcribe_call(
     service = TranscriptionService(session, transcription_client)
     try:
         transcript = service.transcribe_call(call_id)
-        return TranscriptRead.from_orm(transcript)
+        return TranscriptRead.model_validate(transcript)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -123,7 +125,7 @@ async def analyze_call(
     service = AnalysisService(session, llm_client)
     try:
         analysis = service.analyze_call(call_id)
-        return AnalysisRead.from_orm(analysis)
+        return AnalysisRead.model_validate(analysis)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -137,7 +139,7 @@ async def sync_crm(
     service = CRMService(session, crm_client)
     try:
         log = service.sync_call(call_id)
-        return CRMSyncLogRead.from_orm(log)
+        return CRMSyncLogRead.model_validate(log)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

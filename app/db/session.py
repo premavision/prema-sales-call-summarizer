@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
 from app.core.config import get_settings
+from app.models import Call, Transcript, CallAnalysis, CRMNote, CRMTask, CRMSyncLog  # noqa: F401
 
 settings = get_settings()
 

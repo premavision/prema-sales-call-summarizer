@@ -12,8 +12,8 @@ class AnalysisRead(BaseModel):
     objections: Optional[str] = None
     action_items: List[str]
     follow_up_message: Optional[str] = None
-    metadata: dict | None = None
+    extra_metadata: dict | None = None
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

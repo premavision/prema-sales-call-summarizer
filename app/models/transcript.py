@@ -11,5 +11,5 @@ class Transcript(SQLModel, table=True):
     text: Optional[str] = None
     language: Optional[str] = None
     confidence: Optional[float] = None
-    metadata: dict | None = Field(default=None, sa_column=Column(JSON))
+    extra_metadata: dict | None = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)

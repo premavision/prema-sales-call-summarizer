@@ -10,8 +10,8 @@ class TranscriptRead(BaseModel):
     text: Optional[str] = None
     language: Optional[str] = None
     confidence: Optional[float] = None
-    metadata: dict | None = None
+    extra_metadata: dict | None = None
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

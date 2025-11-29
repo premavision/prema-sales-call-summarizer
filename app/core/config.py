@@ -1,5 +1,6 @@
 from functools import lru_cache
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -15,6 +16,10 @@ class Settings(BaseSettings):
     llm_model: str = Field("gpt-4o-mini", description="LLM model name")
 
     crm_mode: str = Field("fake", description="CRM client mode (fake, hubspot, pipedrive)")
+
+    # Security settings
+    cors_origins: str = Field("http://localhost:8000,http://localhost:8501", description="Comma-separated CORS origins")
+    max_upload_size_mb: int = Field(100, description="Maximum file upload size in MB")
 
     class Config:
         env_file = ".env"

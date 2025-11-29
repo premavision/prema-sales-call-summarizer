@@ -11,10 +11,10 @@ class CRMNoteRead(BaseModel):
     call_id: int
     content: str
     created_at: datetime
-    metadata: dict | None = None
+    extra_metadata: dict | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CRMTaskRead(BaseModel):
@@ -24,10 +24,10 @@ class CRMTaskRead(BaseModel):
     due_date: Optional[date] = None
     completed: bool
     created_at: datetime
-    metadata: dict | None = None
+    extra_metadata: dict | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CRMSyncLogRead(BaseModel):
@@ -39,4 +39,4 @@ class CRMSyncLogRead(BaseModel):
     payload: dict | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
