@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+.venv/
+.env
+.pytest_cache/
+.mypy_cache/
+*.db
+data/audio/*
+!data/audio/.gitkeep
