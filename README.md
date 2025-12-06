@@ -64,10 +64,35 @@ curl -F "title=Demo call" \
 ```
 
 ## Testing
+
+### Unit and Integration Tests
 ```bash
 pytest
 ```
 Tests cover call creation, transcription workflow (stub client), analysis workflow (stub LLM), and CRM sync (fake client).
+
+### End-to-End Tests
+Comprehensive E2E tests using Playwright cover both the FastAPI backend and Streamlit frontend:
+
+```bash
+# Install Playwright browsers first
+playwright install chromium
+
+# Run all E2E tests
+pytest tests/e2e/ -v
+
+# Run only API E2E tests
+pytest tests/e2e/test_api_endpoints.py -v
+
+# Run only UI E2E tests
+pytest tests/e2e/test_streamlit_ui.py -v
+```
+
+See [tests/e2e/README.md](tests/e2e/README.md) for detailed documentation on E2E tests, including:
+- Complete test coverage (42 tests: 25 API + 17 UI)
+- Test organization and structure
+- Running and debugging tests
+- CI/CD integration examples
 
 ## Notes on privacy and deployment
 - Call recordings and transcripts are sensitive; by default they stay on disk (`data/audio`) and in local SQLite. If using external providers (OpenAI), data leaves the machine—confirm compliance with client policies.

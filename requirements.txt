@@ -10,3 +10,7 @@ streamlit
 httpx
 python-dotenv
 pytest
+pytest-asyncio
+pytest-playwright
+playwright
+requests
