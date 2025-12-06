@@ -13,22 +13,20 @@ import multiprocessing
 import os
 import shutil
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 from typing import Generator
 
 import pytest
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
-from sqlmodel import create_engine, Session, SQLModel
+from sqlmodel import create_engine, SQLModel
 from httpx import AsyncClient
 
-from app.main import create_app
 from app.models import Call, Transcript, CallAnalysis, CRMNote, CRMTask, CRMSyncLog  # noqa: F401
 
 
 @pytest.fixture(scope="session")
-def test_db_path(tmp_path_factory):
+def test_db_path(tmp_path_factory) -> str:
     """Create a temporary database file for e2e tests"""
     db_dir = tmp_path_factory.mktemp("e2e_db")
     db_path = db_dir / "test.db"
@@ -38,14 +36,14 @@ def test_db_path(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def test_audio_dir(tmp_path_factory):
+def test_audio_dir(tmp_path_factory) -> str:
     """Create a temporary audio directory for e2e tests"""
     audio_dir = tmp_path_factory.mktemp("e2e_audio")
     return str(audio_dir)
 
 
 @pytest.fixture(scope="session")
-def test_env_vars(test_db_path, test_audio_dir):
+def test_env_vars(test_db_path: str, test_audio_dir: str) -> dict[str, str]:
     """Create environment variables for testing"""
     # Use absolute path for SQLite
     abs_db_path = os.path.abspath(test_db_path)
@@ -61,18 +59,18 @@ def test_env_vars(test_db_path, test_audio_dir):
 
 
 @pytest.fixture(scope="session")
-def fastapi_server_port():
+def fastapi_server_port() -> int:
     """Port for FastAPI test server"""
     return 8888
 
 
 @pytest.fixture(scope="session")
-def streamlit_server_port():
+def streamlit_server_port() -> int:
     """Port for Streamlit test server"""
     return 8889
 
 
-def _run_fastapi_server(port: int, env_vars: dict):
+def _run_fastapi_server(port: int, env_vars: dict[str, str]) -> None:
     """Run FastAPI server in a subprocess"""
     # Set environment variables
     env = os.environ.copy()
@@ -86,7 +84,7 @@ def _run_fastapi_server(port: int, env_vars: dict):
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="error", env_file=None)
 
 
-def _run_streamlit_server(port: int, env_vars: dict):
+def _run_streamlit_server(port: int, env_vars: dict[str, str]) -> None:
     """Run Streamlit server in a subprocess"""
     # Set environment variables
     env = os.environ.copy()
@@ -121,7 +119,7 @@ def _run_streamlit_server(port: int, env_vars: dict):
 
 
 @pytest.fixture(scope="session")
-def fastapi_server(test_env_vars, fastapi_server_port):
+def fastapi_server(test_env_vars: dict[str, str], fastapi_server_port: int) -> Generator[str, None, None]:
     """Start FastAPI server for testing"""
     # Set environment variables before starting server
     original_env = {}
@@ -173,7 +171,7 @@ def fastapi_server(test_env_vars, fastapi_server_port):
 
 
 @pytest.fixture(scope="session")
-def streamlit_server(test_env_vars, streamlit_server_port):
+def streamlit_server(test_env_vars: dict[str, str], streamlit_server_port: int) -> Generator[str, None, None]:
     """Start Streamlit server for testing"""
     # Set environment variables before starting server
     original_env = {}
@@ -328,7 +326,7 @@ def sample_audio_file(tmp_path):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_environment(test_db_path, test_audio_dir):
+def setup_test_environment(test_db_path: str, test_audio_dir: str) -> Generator[None, None, None]:
     """Set up test environment once per session"""
     # Ensure audio directory exists
     os.makedirs(test_audio_dir, exist_ok=True)

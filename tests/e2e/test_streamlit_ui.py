@@ -10,7 +10,6 @@ This test suite covers all Streamlit dashboard interactions:
 - Call details tabs (Transcript, Analysis, CRM Notes, Tasks, Sync Logs)
 - Error handling and edge cases
 """
-import io
 from datetime import datetime
 from pathlib import Path
 
