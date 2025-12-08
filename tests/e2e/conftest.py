@@ -351,3 +351,4 @@ def setup_test_environment(test_db_path: str, test_audio_dir: str) -> Generator[
             shutil.rmtree(test_audio_dir)
     except Exception:
         pass  # Ignore cleanup errors
+

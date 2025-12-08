@@ -622,3 +622,4 @@ class TestRefreshFunctionality:
             # Verify new call appears
             page_text = await page.text_content("body")
             assert "Refresh Test Call" in page_text
+

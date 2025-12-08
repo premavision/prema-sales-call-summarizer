@@ -729,3 +729,4 @@ class TestEndToEndWorkflow:
         synced_call_statuses = [call["status"].upper() for call in list_response.json()]
         assert all(status == "SYNCED" for status in synced_call_statuses)
         assert all(cid in synced_ids for cid in call_ids)
+
