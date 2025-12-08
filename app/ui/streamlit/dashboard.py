@@ -368,14 +368,75 @@ def main() -> None:
                             with col_b:
                                 st.markdown("### ✅ Action Items")
                                 if analysis.action_items:
-                                    for i, item in enumerate(analysis.action_items, 1):
-                                        st.checkbox(f"{i}. {item}", value=False, key=f"action-{call.id}-{i}")
+                                    st.caption("Check items to add them to your CRM Tasks list")
+                                    existing_task_descriptions = {
+                                        (t.description or "").strip().lower() for t in tasks
+                                    }
+                                    # Create a copy to iterate safely
+                                    for i, item in enumerate(list(analysis.action_items)):
+                                        normalized_item = (item or "").strip().lower()
+                                        already_exists = normalized_item in existing_task_descriptions
+                                        # Use a checkbox that acts as a trigger
+                                        is_checked = st.checkbox(
+                                            item, 
+                                            value=already_exists,
+                                            disabled=already_exists,
+                                            key=f"action-{call.id}-{i}",
+                                            help="Already added to CRM Tasks" if already_exists else None
+                                        )
+                                        
+                                        if is_checked and not already_exists:
+                                            # Double-check in DB to avoid races/duplicates
+                                            existing_task = session.exec(
+                                                select(CRMTask).where(
+                                                    CRMTask.call_id == call.id,
+                                                    func.lower(CRMTask.description) == normalized_item
+                                                )
+                                            ).first()
+                                            
+                                            if existing_task:
+                                                st.info("Already in CRM Tasks")
+                                            else:
+                                                # Create CRM Task
+                                                new_task = CRMTask(
+                                                    call_id=call.id,
+                                                    description=item,
+                                                    completed=False
+                                                )
+                                                session.add(new_task)
+                                                
+                                                # Remove from action items
+                                                new_items = list(analysis.action_items)
+                                                if item in new_items:
+                                                    new_items.remove(item)
+                                                    analysis.action_items = new_items
+                                                    session.add(analysis)
+                                                
+                                                session.commit()
+                                                st.rerun()
                                 else:
-                                    st.info("No action items")
+                                    st.info("No pending action items")
                                 
                                 if analysis.follow_up_message:
                                     st.markdown("### 💬 Follow-up Draft")
-                                    st.text_area("Follow-up Message", analysis.follow_up_message, height=200, key=f"followup-{call.id}", disabled=True, label_visibility="hidden")
+                                    updated_message = st.text_area(
+                                        "Follow-up Message", 
+                                        analysis.follow_up_message, 
+                                        height=200, 
+                                        key=f"followup-{call.id}",
+                                        label_visibility="hidden"
+                                    )
+                                    
+                                    # Show save button only if changed (simulated by just showing it always for simplicity or checking logic)
+                                    col_save, col_empty = st.columns([1, 4])
+                                    with col_save:
+                                        if st.button("💾 Save Draft", key=f"save-draft-{call.id}"):
+                                            if updated_message != analysis.follow_up_message:
+                                                analysis.follow_up_message = updated_message
+                                                session.add(analysis)
+                                                session.commit()
+                                                st.success("Draft saved!")
+                                                st.rerun()
                         else:
                             st.info("No analysis available. Click 'Analyze' to generate one.")
                     
@@ -392,11 +453,16 @@ def main() -> None:
                             for task in tasks:
                                 status_icon = "✅" if task.completed else "⏳"
                                 due_date_str = f" (Due: {task.due_date})" if task.due_date else ""
-                                st.checkbox(
+                                new_completed = st.checkbox(
                                     f"{status_icon} {task.description}{due_date_str}",
                                     value=task.completed,
                                     key=f"task-{task.id}"
                                 )
+                                if new_completed != task.completed:
+                                    task.completed = new_completed
+                                    session.add(task)
+                                    session.commit()
+                                    st.rerun()
                         else:
                             st.info("No CRM tasks available.")
                     
