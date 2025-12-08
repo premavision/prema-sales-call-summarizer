@@ -38,12 +38,15 @@ class AnalysisService:
             self.session.delete(existing)
             self.session.commit()
 
+        # Ensure action_items is a list
+        action_items = result.action_items if isinstance(result.action_items, list) else []
+        
         analysis = CallAnalysis(
             call_id=call_id,
-            summary=result.summary,
+            summary=result.summary or "",
             pain_points=result.pain_points,
             objections=result.objections,
-            action_items=result.action_items,
+            action_items=action_items,
             follow_up_message=result.follow_up_message,
             extra_metadata=result.metadata,
             created_at=datetime.utcnow(),
@@ -52,9 +55,14 @@ class AnalysisService:
         call.status = CallStatus.ANALYZED
         call.updated_at = datetime.utcnow()
 
-        self.session.add(analysis)
-        self.session.add(call)
-        self.session.commit()
-        self.session.refresh(analysis)
-        logger.info("Completed analysis for call %s", call_id)
-        return analysis
+        try:
+            self.session.add(analysis)
+            self.session.add(call)
+            self.session.commit()
+            self.session.refresh(analysis)
+            logger.info("Completed analysis for call %s", call_id)
+            return analysis
+        except Exception as e:
+            self.session.rollback()
+            logger.error("Failed to save analysis for call %s: %s", call_id, str(e))
+            raise ValueError(f"Failed to save analysis: {str(e)}") from e

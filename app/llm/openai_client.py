@@ -39,19 +39,61 @@ class OpenAILLMClient(LLMClient):
             },
         ]
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0.3,
-            response_format={"type": "json_object"},
-        )
-        content = response.choices[0].message.content  # type: ignore[index]
-        data: dict[str, Any] = json.loads(content or "{}")
-        return CallAnalysisResult(
-            summary=data.get("summary", ""),
-            pain_points=data.get("pain_points"),
-            objections=data.get("objections"),
-            action_items=data.get("action_items") or [],
-            follow_up_message=data.get("follow_up_message"),
-            metadata={"provider": "openai", "model": self.model},
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3,
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content  # type: ignore[index]
+            data: dict[str, Any] = json.loads(content or "{}")
+            
+            # Normalize the response - handle cases where LLM returns lists instead of strings
+            def normalize_to_string(value: Any) -> str:
+                """Convert value to string, handling lists and other types."""
+                if value is None:
+                    return ""
+                if isinstance(value, list):
+                    # Join list items with newlines or spaces
+                    return "\n".join(str(item) for item in value)
+                return str(value)
+            
+            def normalize_action_items(value: Any) -> list[str]:
+                """Ensure action_items is always a list of strings."""
+                if value is None:
+                    return []
+                if isinstance(value, str):
+                    # Try to parse if it's a JSON string
+                    try:
+                        parsed = json.loads(value)
+                        if isinstance(parsed, list):
+                            return [str(item) for item in parsed]
+                        return [str(parsed)]
+                    except (json.JSONDecodeError, TypeError):
+                        # If parsing fails, treat as single item
+                        return [value] if value.strip() else []
+                if isinstance(value, list):
+                    return [str(item) for item in value]
+                return [str(value)]
+            
+            return CallAnalysisResult(
+                summary=normalize_to_string(data.get("summary", "")),
+                pain_points=normalize_to_string(data.get("pain_points")),
+                objections=normalize_to_string(data.get("objections")),
+                action_items=normalize_action_items(data.get("action_items")),
+                follow_up_message=normalize_to_string(data.get("follow_up_message")),
+                metadata={"provider": "openai", "model": self.model},
+            )
+        except Exception as e:
+            error_msg = str(e)
+            # Check for API key errors
+            if "api_key" in error_msg.lower() or "401" in error_msg or "invalid" in error_msg.lower():
+                logger.error("OpenAI API key error: %s", error_msg)
+                raise ValueError(
+                    f"Invalid OpenAI API key. Please check your OPENAI_API_KEY in .env file. "
+                    f"API keys should start with 'sk-'. Error: {error_msg}"
+                )
+            # Re-raise other errors as-is
+            logger.error("Analysis error: %s", error_msg)
+            raise

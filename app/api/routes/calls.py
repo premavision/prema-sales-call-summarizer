@@ -114,6 +114,8 @@ async def transcribe_call(
         return TranscriptRead.model_validate(transcript)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(exc)}")
 
 
 @router.post("/calls/{call_id}/analyze", response_model=AnalysisRead)

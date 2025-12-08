@@ -19,9 +19,7 @@ from app.services.call_service import CallService
 from app.services.transcription_service import TranscriptionService
 from app.services.analysis_service import AnalysisService
 from app.services.crm_service import CRMService
-from app.asr.stub_client import StubTranscriptionClient
-from app.llm.stub_client import StubLLMClient
-from app.crm.fake_client import FakeCRMClient
+from app.api.dependencies import _create_transcription_client, _create_llm_client, _create_crm_client
 from app.storage.audio_storage import save_audio_file
 from app.schemas import CallCreate
 
@@ -150,9 +148,13 @@ def main() -> None:
 
     session = get_session()
     call_service = CallService(session)
-    transcription_service = TranscriptionService(session, StubTranscriptionClient())
-    analysis_service = AnalysisService(session, StubLLMClient())
-    crm_service = CRMService(session, FakeCRMClient(session))
+    # Use proper dependency injection to get the configured clients
+    transcription_client = _create_transcription_client(settings)
+    llm_client = _create_llm_client(settings)
+    crm_client = _create_crm_client(session)
+    transcription_service = TranscriptionService(session, transcription_client)
+    analysis_service = AnalysisService(session, llm_client)
+    crm_service = CRMService(session, crm_client)
 
     # Sidebar for upload and filters
     with st.sidebar:
