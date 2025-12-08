@@ -33,7 +33,7 @@ def get_session() -> Session:
     return Session(engine)
 
 
-def load_calls(session: Session, status_filter: Optional[CallStatus] = None, search_query: str = "") -> List[Call]:
+def load_calls(session: Session, status_filter: Optional[CallStatus] = None, search_query: str = "", limit: int = 10, offset: int = 0) -> tuple[List[Call], int]:
     query = select(Call)
     if status_filter:
         query = query.where(Call.status == status_filter)
@@ -44,7 +44,15 @@ def load_calls(session: Session, status_filter: Optional[CallStatus] = None, sea
             (func.lower(Call.contact_name).like(search)) |
             (func.lower(Call.company).like(search))
         )
-    return session.exec(query.order_by(Call.recorded_at.desc())).all()
+    
+    # Get total count for pagination
+    count_query = select(func.count()).select_from(query.subquery())
+    total_count = session.exec(count_query).one()
+    
+    # Get paginated results
+    calls = session.exec(query.order_by(Call.recorded_at.desc()).offset(offset).limit(limit)).all()
+    
+    return calls, total_count
 
 
 def get_status_color(status: CallStatus) -> str:
@@ -109,7 +117,7 @@ def main() -> None:
         page_title="Sales Call Summarizer",
         page_icon="📞",
         layout="wide",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state="auto"
     )
     
     # Custom CSS for better styling
@@ -144,6 +152,23 @@ def main() -> None:
     .stButton>button {
         width: 100%;
         border-radius: 0.5rem;
+        height: auto;
+        min-height: 44px; /* Better touch target for mobile */
+    }
+    
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+        .main-header {
+            font-size: 1.8rem;
+        }
+        .call-card {
+            padding: 1rem;
+        }
+        .block-container {
+            padding-top: 2rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -219,32 +244,106 @@ def main() -> None:
     
     # Metrics Dashboard
     metrics = calculate_metrics(session)
-    metric_cols = st.columns(7)
-    with metric_cols[0]:
-        st.metric("Total Calls", metrics["total"])
-    with metric_cols[1]:
-        st.metric("New", metrics["new"], delta=None)
-    with metric_cols[2]:
-        st.metric("Transcribed", metrics["transcribed"])
-    with metric_cols[3]:
-        st.metric("Analyzed", metrics["analyzed"])
-    with metric_cols[4]:
-        st.metric("Synced", metrics["synced"])
-    with metric_cols[5]:
-        st.metric("Completed", metrics["completed"])
-    with metric_cols[6]:
-        st.metric("Last 7 Days", metrics["recent"])
+    
+    # Custom CSS for metrics grid
+    st.markdown("""
+    <style>
+    .metric-container {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .metric-item {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #1f77b4;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .metric-label {
+        color: #555;
+        font-size: 0.875rem;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    .metric-value {
+        color: #0f172a;
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+    
+    /* Mobile styles */
+    @media (max-width: 768px) {
+        .metric-container {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+        .metric-item {
+            padding: 0.75rem;
+        }
+        .metric-value {
+            font-size: 1.5rem;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="metric-container">
+        <div class="metric-item">
+            <div class="metric-label">Total Calls</div>
+            <div class="metric-value">{metrics["total"]}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">New</div>
+            <div class="metric-value">{metrics["new"]}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">Completed</div>
+            <div class="metric-value">{metrics["completed"]}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">Last 7 Days</div>
+            <div class="metric-value">{metrics["recent"]}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">Transcribed</div>
+            <div class="metric-value">{metrics["transcribed"]}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">Analyzed</div>
+            <div class="metric-value">{metrics["analyzed"]}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">Synced</div>
+            <div class="metric-value">{metrics["synced"]}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("---")
     
+    # Pagination State
+    if "page_number" not in st.session_state:
+        st.session_state.page_number = 1
+    
+    PAGE_SIZE = 10
+    offset = (st.session_state.page_number - 1) * PAGE_SIZE
+    
     # Filter calls
     selected_status = None if status_filter == "All" else CallStatus(status_filter)
-    calls = load_calls(session, status_filter=selected_status, search_query=search_query or "")
+    calls, total_count = load_calls(session, status_filter=selected_status, search_query=search_query or "", limit=PAGE_SIZE, offset=offset)
     
+    # Reset to page 1 if search/filter changes result in no items on current page (basic check)
+    if total_count > 0 and offset >= total_count:
+        st.session_state.page_number = 1
+        st.rerun()
+
     # Header with refresh button
     header_col1, header_col2 = st.columns([3, 1])
     with header_col1:
-        st.subheader(f"📋 Calls ({len(calls)})")
+        st.subheader(f"📋 Calls ({total_count})")
     with header_col2:
         if st.button("🔄 Refresh", use_container_width=True):
             st.rerun()
@@ -254,13 +353,16 @@ def main() -> None:
         st.session_state["call_errors"] = {}
 
     if not calls:
-        st.info("📭 No calls found. Upload a new call to get started!")
+        if total_count == 0:
+            st.info("📭 No calls found. Upload a new call to get started!")
+        else:
+            st.info("No calls match the current filters.")
     else:
         # Display calls in a better format
         for call in calls:
             with st.container():
                 # Call header card
-                col1, col2, col3 = st.columns([3, 1, 1])
+                # Use fewer columns for the header on mobile/general layout
                 
                 # Check for persistent errors
                 if call.id in st.session_state["call_errors"]:
@@ -271,23 +373,14 @@ def main() -> None:
                     st.session_state[selected_key] = []
                 selected_action_items = st.session_state[selected_key]
                 
-                with col1:
+                # Header row: Title and Status
+                h_col1, h_col2 = st.columns([3, 1])
+                with h_col1:
                     status_emoji = get_status_color(call.status)
                     st.markdown(f"### {status_emoji} {call.title}")
-                    st.caption(f"ID: {call.id} • Recorded: {format_datetime(call.recorded_at)}")
-                    info_cols = st.columns(3)
-                    with info_cols[0]:
-                        if call.contact_name:
-                            st.caption(f"👤 {call.contact_name}")
-                    with info_cols[1]:
-                        if call.company:
-                            st.caption(f"🏢 {call.company}")
-                    with info_cols[2]:
-                        if call.participants:
-                            st.caption(f"👥 {', '.join(call.participants[:2])}{'...' if len(call.participants) > 2 else ''}")
-                
-                with col2:
-                    st.markdown(f"**Status**")
+                    st.caption(f"Recorded: {format_datetime(call.recorded_at)} • {call.call_type or 'N/A'}")
+                with h_col2:
+                    # Compact status
                     status_colors = {
                         CallStatus.NEW: ("#3b82f6", "#dbeafe"),
                         CallStatus.TRANSCRIBED: ("#eab308", "#fef9c3"),
@@ -297,26 +390,29 @@ def main() -> None:
                     }
                     color, bg_color = status_colors.get(call.status, ("#6b7280", "#f3f4f6"))
                     st.markdown(
-                        f'<span style="background-color: {bg_color}; color: {color}; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.875rem; font-weight: 600;">{call.status.value}</span>',
+                        f'<div style="text-align: right;"><span style="background-color: {bg_color}; color: {color}; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 600;">{call.status.value}</span></div>',
                         unsafe_allow_html=True
                     )
                 
-                with col3:
-                    st.markdown(f"**Type**")
-                    st.caption(f"📞 {call.call_type or 'N/A'}")
-                    if call.crm_deal_id:
-                        st.caption(f"🔗 {call.crm_deal_id}")
-                
-                # Action buttons
-                action_cols = st.columns(5)
-                
-                # Check if call is completed to disable actions
+                # Details Row
+                d_col1, d_col2, d_col3 = st.columns(3)
+                with d_col1:
+                    if call.contact_name: st.caption(f"👤 {call.contact_name}")
+                with d_col2:
+                    if call.company: st.caption(f"🏢 {call.company}")
+                with d_col3:
+                     if call.crm_deal_id: st.caption(f"🔗 {call.crm_deal_id}")
+
+                # Action buttons - Simplified for mobile
                 is_completed = call.status == CallStatus.COMPLETED
                 
-                with action_cols[0]:
+                # Group actions
+                act_col1, act_col2, act_col3 = st.columns(3)
+                
+                with act_col1:
                     transcribe_container = st.empty()
                     if transcribe_container.button("🎙️ Transcribe", key=f"t-{call.id}", use_container_width=True, disabled=is_completed):
-                        transcribe_container.button("🎙️ Transcribing...", key=f"t-loading-{call.id}", disabled=True, use_container_width=True)
+                        transcribe_container.button("🎙️ ...", key=f"t-loading-{call.id}", disabled=True, use_container_width=True)
                         try:
                             transcription_service.transcribe_call(call.id)
                             st.toast("✅ Transcribed successfully!", icon="✅")
@@ -328,10 +424,10 @@ def main() -> None:
                             st.session_state["call_errors"][call.id] = f"Transcription failed: {str(e)}"
                             st.rerun()
                 
-                with action_cols[1]:
+                with act_col2:
                     analyze_container = st.empty()
                     if analyze_container.button("🧠 Analyze", key=f"a-{call.id}", use_container_width=True, disabled=is_completed):
-                        analyze_container.button("🧠 Analyzing...", key=f"a-loading-{call.id}", disabled=True, use_container_width=True)
+                        analyze_container.button("🧠 ...", key=f"a-loading-{call.id}", disabled=True, use_container_width=True)
                         try:
                             analysis_service.analyze_call(call.id)
                             st.toast("✅ Analyzed successfully!", icon="✅")
@@ -343,50 +439,26 @@ def main() -> None:
                             st.session_state["call_errors"][call.id] = f"Analysis failed: {str(e)}"
                             st.rerun()
                 
-                with action_cols[2]:
+                with act_col3:
                     sync_container = st.empty()
                     if sync_container.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True, disabled=is_completed):
-                        sync_container.button("🔄 Syncing...", key=f"s-loading-{call.id}", disabled=True, use_container_width=True)
+                        sync_container.button("🔄 ...", key=f"s-loading-{call.id}", disabled=True, use_container_width=True)
                         # Check follow-up status for warning
                         analysis_check = session.exec(select(CallAnalysis).where(CallAnalysis.call_id == call.id)).first()
                         
                         try:
                             crm_service.sync_call(call.id, selected_action_items=selected_action_items)
-                            
-                            # Clear error if successful
                             st.session_state["call_errors"].pop(call.id, None)
-                            
                             if analysis_check and not analysis_check.follow_up_sent:
-                                # Only show message if follow-up is NOT sent
                                 st.toast("✅ Synced! Note: Follow-up email was not marked as sent.", icon="⚠️")
                             else:
                                 st.toast("✅ Synced with CRM!", icon="✅")
-                            
                             time.sleep(1)
                             st.rerun()
                         except Exception as e:
                             sync_container.button("🔄 Sync CRM", key=f"s-retry-{call.id}", use_container_width=True)
                             st.session_state["call_errors"][call.id] = f"CRM Sync failed: {str(e)}"
                             st.rerun()
-                
-                # with action_cols[3]:
-                #     if st.button("⚡ Process All", key=f"p-{call.id}", use_container_width=True):
-                #         with st.spinner("Processing..."):
-                #             try:
-                #                 transcription_service.transcribe_call(call.id)
-                #                 analysis_service.analyze_call(call.id)
-                #                 crm_service.sync_call(call.id, selected_action_items=selected_action_items)
-                #                 st.success("✅ All steps completed!")
-                #                 st.rerun()
-                #             except Exception as e:
-                #                 st.error(f"Error: {str(e)}")
-                
-                with action_cols[4]:
-                    if call.crm_deal_id:
-                        st.markdown(f"**CRM Deal**")
-                        st.caption(f"🔗 {call.crm_deal_id}")
-                    else:
-                        st.caption("No CRM deal linked")
                 
                 # Call details in tabs
                 transcript = session.exec(select(Transcript).where(Transcript.call_id == call.id)).first()
@@ -456,7 +528,7 @@ def main() -> None:
                                     # Save Draft Button
                                     col_save, col_empty = st.columns([1, 4])
                                     with col_save:
-                                        if st.button("💾 Save Draft", key=f"save-draft-{call.id}"):
+                                        if st.button("💾 Save", key=f"save-draft-{call.id}"):
                                             if updated_message != analysis.follow_up_message:
                                                 analysis.follow_up_message = updated_message
                                                 session.add(analysis)
@@ -476,14 +548,13 @@ def main() -> None:
                                     col_email, col_sent, col_spacer = st.columns([2, 2, 3])
                                     
                                     with col_email:
-                                        st.link_button("📧 Open in Email Client", mailto_link)
+                                        st.link_button("📧 Open Email", mailto_link)
                                         
                                     with col_sent:
                                         if analysis.follow_up_sent:
-                                            st.success(f"✅ Sent on {format_datetime(analysis.follow_up_sent_at)}")
+                                            st.success(f"✅ Sent {format_datetime(analysis.follow_up_sent_at)}")
                                         else:
-                                            # Use a key for the button that won't conflict with others
-                                            if st.button("Mark as Sent", key=f"mark-sent-{call.id}"):
+                                            if st.button("Mark Sent", key=f"mark-sent-{call.id}"):
                                                 analysis.follow_up_sent = True
                                                 analysis.follow_up_sent_at = datetime.utcnow()
                                                 
@@ -496,7 +567,6 @@ def main() -> None:
                                                 session.add(call)
                                                 session.commit()
                                                 
-                                                # Log to CRM
                                                 try:
                                                     crm_service.log_follow_up_sent(call.id)
                                                     st.toast("Logged to CRM!")
@@ -557,7 +627,23 @@ def main() -> None:
                             st.info("No sync logs available.")
                 
                 st.markdown("---")
-
+        
+        # Pagination Controls
+        if total_count > PAGE_SIZE:
+            total_pages = (total_count + PAGE_SIZE - 1) // PAGE_SIZE
+            c1, c2, c3 = st.columns([1, 2, 1])
+            with c1:
+                if st.session_state.page_number > 1:
+                    if st.button("Previous", key="prev_page"):
+                        st.session_state.page_number -= 1
+                        st.rerun()
+            with c2:
+                st.markdown(f"<div style='text-align: center; padding-top: 10px;'>Page {st.session_state.page_number} of {total_pages}</div>", unsafe_allow_html=True)
+            with c3:
+                if st.session_state.page_number < total_pages:
+                    if st.button("Next", key="next_page"):
+                        st.session_state.page_number += 1
+                        st.rerun()
 
 if __name__ == "__main__":
     main()
