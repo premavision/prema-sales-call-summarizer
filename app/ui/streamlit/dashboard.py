@@ -576,7 +576,7 @@ def main() -> None:
                             with col_b:
                                 st.markdown("### ✅ Action Items")
                                 if analysis.action_items:
-                                    st.caption("Check items to add them to your CRM Tasks list")
+                                    st.caption("Check items to add them to your CRM Tasks list. They will be added after clicking 'Sync CRM'.")
                                     for i, item in enumerate(list(analysis.action_items)):
                                         is_checked = st.checkbox(
                                             item,
