@@ -445,6 +445,9 @@ def main() -> None:
                 if call.id in st.session_state["call_errors"]:
                     st.error(st.session_state["call_errors"][call.id], icon="🚨")
 
+                if call.status == CallStatus.SYNCED:
+                     st.warning("⚠️ CRM Synced, but follow-up email has not been sent yet.")
+
                 selected_key = f"selected_action_items_{call.id}"
                 if selected_key not in st.session_state:
                     st.session_state[selected_key] = []
@@ -521,15 +524,11 @@ def main() -> None:
                     if sync_container.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True, disabled=is_completed):
                         sync_container.button("🔄 ...", key=f"s-loading-{call.id}", disabled=True, use_container_width=True)
                         # Check follow-up status for warning
-                        analysis_check = session.exec(select(CallAnalysis).where(CallAnalysis.call_id == call.id)).first()
                         
                         try:
                             crm_service.sync_call(call.id, selected_action_items=selected_action_items)
                             st.session_state["call_errors"].pop(call.id, None)
-                            if analysis_check and not analysis_check.follow_up_sent:
-                                st.toast("✅ Synced! Note: Follow-up email was not marked as sent.", icon="⚠️")
-                            else:
-                                st.toast("✅ Synced with CRM!", icon="✅")
+                            st.toast("✅ Synced with CRM!", icon="✅")
                             time.sleep(1)
                             st.rerun()
                         except Exception as e:
