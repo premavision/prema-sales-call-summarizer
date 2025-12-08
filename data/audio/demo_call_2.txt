@@ -1,1 +1,33 @@
-Hi, this is a short test call for transcription and analysis. I'm checking product fit, pricing options, and next steps. Please confirm the summary and generate action items based on this recording.
+hey alex thanks for joining today before we start are we still looking at helping your team with workflow automation for customer support
+
+yeah thats right were growing fast and our ticket backlog is getting out of control
+
+got it makes sense and youre at like what around three thousand tickets per month
+
+closer to thirty eight hundred now thats part of the reason were exploring ai automation but im honestly still not sure about the pricing the number we saw on your website feels a bit high for where we're at
+
+thanks for being open pricing always depends on context before we get there i want to make sure the automation we talked about actually solves what youre facing so from what i understand
+- response times are slow
+- agents spend too much time rewriting similar answers
+- and your vip sla is being missed around twenty percent of the time
+does that sound right
+
+yeah especially the vip sla thats a big issue our coo brings it up almost every week
+
+got it and is the coo the final decision maker on this
+
+not fully she makes the call on budget but our head of support daniel has a big influence too hes not on this call hes traveling this week
+
+okay understood so heres what i would suggest we can run a small pilot with your most repetitive ticket categories show you before after numbers and then bring daniel into the next call to align on workflow that way your coo sees the cost impact and daniel sees the process improvement
+
+yeah that actually sounds good so what would the pilot look like
+
+super simple you send us two to three hundred anonymized tickets plus the macros you currently use and your definition of vip priority we build an automation model in about forty eight hours run it against the sample and present the results if the numbers make sense we move to full rollout
+
+okay that sounds reasonable can you send me a summary and what you need from us
+
+yeah absolutely i’ll send it right after this call also lets tentatively book a follow up early next week when daniel is back
+
+perfect lets do that
+
+awesome appreciate your time alex talk soon
