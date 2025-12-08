@@ -16,6 +16,11 @@ class CRMService:
         self.session = session
         self.client = client
 
+    def log_follow_up_sent(self, call_id: int) -> CRMNote:
+        """Create a CRM note indicating the follow-up email was sent manually."""
+        content = f"Follow-up email manually sent to client on {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}."
+        return self.client.create_note(call_id=call_id, content=content)
+
     def sync_call(self, call_id: int, selected_action_items: Optional[List[str]] = None) -> CRMSyncLog:
         call = self.session.get(Call, call_id)
         if not call:
@@ -28,21 +33,39 @@ class CRMService:
             raise ValueError("Analysis required before CRM sync")
 
         try:
-            note_content = analysis.summary or "No summary available"
-            if analysis.follow_up_message:
-                note_content += f"\n\nFollow-up draft:\n{analysis.follow_up_message}"
+            parts = []
+            if analysis.summary:
+                parts.append(f"SUMMARY:\n{analysis.summary}")
+            if analysis.pain_points:
+                parts.append(f"PAIN POINTS:\n{analysis.pain_points}")
+            if analysis.objections:
+                parts.append(f"OBJECTIONS:\n{analysis.objections}")
+            
+            if getattr(analysis, "follow_up_sent", False):
+                sent_at = getattr(analysis, "follow_up_sent_at", datetime.utcnow())
+                date_str = sent_at.strftime("%Y/%m/%d")
+                parts.append(f"FOLLOW-UP:\nEmail sent to client on {date_str}.")
+            else:
+                parts.append("FOLLOW-UP:\nNot sent yet.")
+                
+            note_content = "\n\n".join(parts) or "No content available"
             note = self.client.create_note(call_id=call_id, content=note_content)
             # Deduplicate against existing tasks for this call (case-insensitive, trimmed)
             existing_tasks = self.session.exec(
                 select(CRMTask).where(CRMTask.call_id == call_id)
             ).all()
+            
+            # Normalize strings for comparison: lowercase, strip, remove extra spaces
+            def normalize(s: str) -> str:
+                return " ".join((s or "").split()).lower()
+
             existing_descriptions = {
-                (t.description or "").strip().lower() for t in existing_tasks
+                normalize(t.description) for t in existing_tasks
             }
             deduped_items: List[str] = []
             items_to_sync = selected_action_items if selected_action_items is not None else analysis.action_items
             for item in items_to_sync:
-                normalized = (item or "").strip().lower()
+                normalized = normalize(item)
                 if normalized and normalized not in existing_descriptions:
                     deduped_items.append(item)
                     existing_descriptions.add(normalized)

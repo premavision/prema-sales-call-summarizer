@@ -13,5 +13,7 @@ class CallAnalysis(SQLModel, table=True):
     objections: Optional[str] = None
     action_items: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     follow_up_message: Optional[str] = None
+    follow_up_sent: bool = Field(default=False)
+    follow_up_sent_at: Optional[datetime] = None
     extra_metadata: dict | None = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
