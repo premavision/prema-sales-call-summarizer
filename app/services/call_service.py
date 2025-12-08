@@ -15,10 +15,11 @@ class CallService:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_call(self, call_data: CallCreate, audio_path: str) -> Call:
+    def create_call(self, call_data: CallCreate, audio_path: str, session_id: Optional[str] = None) -> Call:
         call = Call(
             **call_data.dict(),
             audio_path=audio_path,
+            session_id=session_id,
             status=CallStatus.NEW,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -29,8 +30,10 @@ class CallService:
         logger.info("Created call %s with audio %s", call.id, audio_path)
         return call
 
-    def list_calls(self, status: Optional[CallStatus] = None) -> List[Call]:
+    def list_calls(self, status: Optional[CallStatus] = None, session_id: Optional[str] = None) -> List[Call]:
         query = select(Call)
+        if session_id:
+            query = query.where(Call.session_id == session_id)
         if status:
             query = query.where(Call.status == status)
         return self.session.exec(query.order_by(Call.recorded_at.desc())).all()

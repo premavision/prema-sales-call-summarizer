@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     llm_model: str = Field("gpt-4o-mini", description="LLM model name")
 
     crm_mode: str = Field("fake", description="CRM client mode (fake, hubspot, pipedrive)")
+    demo_mode: bool = Field(False, description="Enable demo mode behavior")
 
     # Security settings
     cors_origins: str = Field("http://localhost:8000,http://localhost:8501", description="Comma-separated CORS origins")

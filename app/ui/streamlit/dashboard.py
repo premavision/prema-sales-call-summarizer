@@ -1,6 +1,7 @@
 import io
 import sys
 import time
+import uuid
 import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -33,8 +34,10 @@ def get_session() -> Session:
     return Session(engine)
 
 
-def load_calls(session: Session, status_filter: Optional[CallStatus] = None, search_query: str = "", limit: int = 10, offset: int = 0) -> tuple[List[Call], int]:
+def load_calls(session: Session, status_filter: Optional[CallStatus] = None, search_query: str = "", limit: int = 10, offset: int = 0, session_id: Optional[str] = None) -> tuple[List[Call], int]:
     query = select(Call)
+    if session_id:
+        query = query.where(Call.session_id == session_id)
     if status_filter:
         query = query.where(Call.status == status_filter)
     if search_query:
@@ -119,6 +122,10 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="auto"
     )
+
+    # Initialize Session ID for isolation
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
     
     # Custom CSS for better styling
     st.markdown("""
@@ -188,6 +195,65 @@ def main() -> None:
 
     # Sidebar for upload and filters
     with st.sidebar:
+        if settings.demo_mode:
+            st.header("🎮 Demo Mode")
+            st.caption(f"Session: {st.session_state.session_id[:8]}...")
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Load Demo 1", use_container_width=True):
+                    p = Path(settings.audio_dir) / "demo_call_1.mp3"
+                    if p.exists():
+                        call_payload = CallCreate(
+                            title="Discovery Call (Demo 1)",
+                            recorded_at=datetime.utcnow(),
+                            participants=["Alice", "Bob"],
+                            call_type="discovery",
+                            contact_name="Alice Smith",
+                            company="Nexus Tech",
+                            crm_deal_id="DEMO-001"
+                        )
+                        call_service.create_call(
+                            call_data=call_payload, 
+                            audio_path=str(p),
+                            session_id=st.session_state.session_id
+                        )
+                        st.rerun()
+                    else:
+                        st.error("Demo file 1 not found")
+            
+            with c2:
+                if st.button("Load Demo 2", use_container_width=True):
+                    p = Path(settings.audio_dir) / "demo_call_2.mp3"
+                    if p.exists():
+                        call_payload = CallCreate(
+                            title="Product Demo (Demo 2)",
+                            recorded_at=datetime.utcnow(),
+                            participants=["Charlie", "Dave"],
+                            call_type="demo",
+                            contact_name="Charlie Brown",
+                            company="Solstice",
+                            crm_deal_id="DEMO-002"
+                        )
+                        call_service.create_call(
+                            call_data=call_payload, 
+                            audio_path=str(p),
+                            session_id=st.session_state.session_id
+                        )
+                        st.rerun()
+                    else:
+                        st.error("Demo file 2 not found")
+
+            if st.button("🔄 Reset / New Demo", type="primary", use_container_width=True):
+                st.session_state.session_id = str(uuid.uuid4())
+                # Clear all other session state
+                for key in list(st.session_state.keys()):
+                    if key != "session_id":
+                        del st.session_state[key]
+                st.rerun()
+            
+            st.markdown("---")
+
         st.header("📤 Upload New Call")
         with st.form("upload_call_form", clear_on_submit=True):
             title = st.text_input("Title *", placeholder="Discovery call with Acme Corp")
@@ -216,7 +282,11 @@ def main() -> None:
                         company=company or None,
                         crm_deal_id=crm_deal_id or None,
                     )
-                    new_call = call_service.create_call(call_data=call_payload, audio_path=audio_path)
+                    new_call = call_service.create_call(
+                        call_data=call_payload, 
+                        audio_path=audio_path,
+                        session_id=st.session_state.session_id if settings.demo_mode else None
+                    )
                     st.success(f"✅ Call created successfully! ID: {new_call.id}")
                     st.rerun()
                 except Exception as e:
@@ -333,7 +403,14 @@ def main() -> None:
     
     # Filter calls
     selected_status = None if status_filter == "All" else CallStatus(status_filter)
-    calls, total_count = load_calls(session, status_filter=selected_status, search_query=search_query or "", limit=PAGE_SIZE, offset=offset)
+    calls, total_count = load_calls(
+        session, 
+        status_filter=selected_status, 
+        search_query=search_query or "", 
+        limit=PAGE_SIZE, 
+        offset=offset,
+        session_id=st.session_state.session_id if settings.demo_mode else None
+    )
     
     # Reset to page 1 if search/filter changes result in no items on current page (basic check)
     if total_count > 0 and offset >= total_count:
@@ -528,13 +605,21 @@ def main() -> None:
                                     # Save Draft Button
                                     col_save, col_empty = st.columns([1, 4])
                                     with col_save:
-                                        if st.button("💾 Save", key=f"save-draft-{call.id}"):
-                                            if updated_message != analysis.follow_up_message:
+                                        # Check if current text differs from DB
+                                        current_db_val = analysis.follow_up_message or ""
+                                        current_ui_val = updated_message or ""
+                                        is_dirty = current_ui_val.strip() != current_db_val.strip()
+                                        
+                                        if is_dirty:
+                                            # Show primary Save button if changes detected
+                                            if st.button("💾 Save", key=f"save-btn-{call.id}", type="primary"):
                                                 analysis.follow_up_message = updated_message
                                                 session.add(analysis)
                                                 session.commit()
-                                                st.success("Draft saved!")
                                                 st.rerun()
+                                        else:
+                                            # Show disabled/secondary Saved button if synced
+                                            st.button("✅ Saved", key=f"save-btn-{call.id}", disabled=True)
                                     
                                     # Follow-up Actions
                                     st.markdown("---")

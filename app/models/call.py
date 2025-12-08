@@ -19,5 +19,6 @@ class Call(SQLModel, table=True):
     contact_name: Optional[str] = None
     company: Optional[str] = None
     crm_deal_id: Optional[str] = None
+    session_id: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
