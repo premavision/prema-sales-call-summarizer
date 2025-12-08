@@ -356,17 +356,17 @@ def main() -> None:
                             except Exception as e:
                                 st.error(f"Error: {str(e)}")
                 
-                with action_cols[3]:
-                    if st.button("⚡ Process All", key=f"p-{call.id}", use_container_width=True):
-                        with st.spinner("Processing..."):
-                            try:
-                                transcription_service.transcribe_call(call.id)
-                                analysis_service.analyze_call(call.id)
-                                crm_service.sync_call(call.id, selected_action_items=selected_action_items)
-                                st.success("✅ All steps completed!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error: {str(e)}")
+                # with action_cols[3]:
+                #     if st.button("⚡ Process All", key=f"p-{call.id}", use_container_width=True):
+                #         with st.spinner("Processing..."):
+                #             try:
+                #                 transcription_service.transcribe_call(call.id)
+                #                 analysis_service.analyze_call(call.id)
+                #                 crm_service.sync_call(call.id, selected_action_items=selected_action_items)
+                #                 st.success("✅ All steps completed!")
+                #                 st.rerun()
+                #             except Exception as e:
+                #                 st.error(f"Error: {str(e)}")
                 
                 with action_cols[4]:
                     if call.crm_deal_id:
