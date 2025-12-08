@@ -23,3 +23,8 @@ def get_session() -> Session:
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(bind=engine)
+
+
+def reset_db() -> None:
+    SQLModel.metadata.drop_all(bind=engine)
+    create_db_and_tables()

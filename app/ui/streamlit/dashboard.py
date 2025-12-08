@@ -1,5 +1,6 @@
 import io
 import sys
+import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List
@@ -13,7 +14,7 @@ from sqlmodel import Session, select, func
 
 from app.core.config import get_settings
 from app.core.constants import CallStatus, CRMSyncStatus
-from app.db.session import engine
+from app.db.session import engine, reset_db
 from app.models import Call, Transcript, CallAnalysis, CRMNote, CRMTask, CRMSyncLog
 from app.services.call_service import CallService
 from app.services.transcription_service import TranscriptionService
@@ -202,6 +203,15 @@ def main() -> None:
             key="status_filter"
         )
         search_query = st.text_input("🔎 Search", placeholder="Search by title, contact, or company...")
+
+        st.markdown("---")
+        # Settings Popover
+        with st.sidebar.popover("⚙️ Settings", use_container_width=True):
+            st.markdown("### Database")
+            if st.button("🧨 Reset Database", type="primary", use_container_width=True):
+                reset_db()
+                st.success("✅ Database reset successfully!")
+                st.rerun()
     
     # Metrics Dashboard
     metrics = calculate_metrics(session)
@@ -232,7 +242,11 @@ def main() -> None:
     with header_col2:
         if st.button("🔄 Refresh", use_container_width=True):
             st.rerun()
-    
+
+    # Flash messages
+    if "flash_msgs" not in st.session_state:
+        st.session_state["flash_msgs"] = {}
+
     if not calls:
         st.info("📭 No calls found. Upload a new call to get started!")
     else:
@@ -241,6 +255,17 @@ def main() -> None:
             with st.container():
                 # Call header card
                 col1, col2, col3 = st.columns([3, 1, 1])
+                
+                # Check for flash messages
+                flash_msg = st.session_state["flash_msgs"].pop(call.id, None)
+                if flash_msg:
+                    if flash_msg["type"] == "success":
+                        st.success(flash_msg["msg"])
+                    elif flash_msg["type"] == "warning":
+                        st.warning(flash_msg["msg"])
+                    elif flash_msg["type"] == "error":
+                        st.error(flash_msg["msg"])
+
                 selected_key = f"selected_action_items_{call.id}"
                 if selected_key not in st.session_state:
                     st.session_state[selected_key] = []
@@ -306,10 +331,27 @@ def main() -> None:
                 
                 with action_cols[2]:
                     if st.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True):
+                        # Check follow-up status for warning
+                        analysis_check = session.exec(select(CallAnalysis).where(CallAnalysis.call_id == call.id)).first()
+                        
                         with st.spinner("Syncing..."):
                             try:
                                 crm_service.sync_call(call.id, selected_action_items=selected_action_items)
-                                st.success("✅ Synced!")
+                                
+                                # Clear any previous success flash messages
+                                if call.id in st.session_state["flash_msgs"]:
+                                    del st.session_state["flash_msgs"][call.id]
+                                
+                                if analysis_check and not analysis_check.follow_up_sent:
+                                    # Only show message if follow-up is NOT sent
+                                    st.session_state["flash_msgs"][call.id] = {
+                                        "type": "warning",
+                                        "msg": "✅ Synced! \n\n⚠ Note: Follow-up email was not marked as sent."
+                                    }
+                                else:
+                                    # If synced successfully and follow-up sent, show a transient toast instead of persistent success message
+                                    st.toast("✅ Synced with CRM!")
+                                
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {str(e)}")
@@ -398,7 +440,7 @@ def main() -> None:
                                         label_visibility="hidden"
                                     )
                                     
-                                    # Show save button only if changed (simulated by just showing it always for simplicity or checking logic)
+                                    # Save Draft Button
                                     col_save, col_empty = st.columns([1, 4])
                                     with col_save:
                                         if st.button("💾 Save Draft", key=f"save-draft-{call.id}"):
@@ -407,6 +449,43 @@ def main() -> None:
                                                 session.add(analysis)
                                                 session.commit()
                                                 st.success("Draft saved!")
+                                                st.rerun()
+                                    
+                                    # Follow-up Actions
+                                    st.markdown("---")
+                                    st.markdown("#### Actions")
+                                    
+                                    # Prepare mailto link
+                                    subject = urllib.parse.quote(f"Follow-up: {call.title}")
+                                    body = urllib.parse.quote(analysis.follow_up_message or "")
+                                    mailto_link = f"mailto:?subject={subject}&body={body}"
+                                    
+                                    col_email, col_sent, col_spacer = st.columns([2, 2, 3])
+                                    
+                                    with col_email:
+                                        st.link_button("📧 Open in Email Client", mailto_link)
+                                        
+                                    with col_sent:
+                                        if analysis.follow_up_sent:
+                                            st.success(f"✅ Sent on {format_datetime(analysis.follow_up_sent_at)}")
+                                        else:
+                                            # Use a key for the button that won't conflict with others
+                                            if st.button("Mark as Sent", key=f"mark-sent-{call.id}"):
+                                                analysis.follow_up_sent = True
+                                                analysis.follow_up_sent_at = datetime.utcnow()
+                                                if call.status != CallStatus.ANALYZED:
+                                                    call.status = CallStatus.ANALYZED
+                                                session.add(analysis)
+                                                session.add(call)
+                                                session.commit()
+                                                
+                                                # Log to CRM
+                                                try:
+                                                    crm_service.log_follow_up_sent(call.id)
+                                                    st.toast("Logged to CRM!")
+                                                except Exception as e:
+                                                    st.error(f"Failed to log to CRM: {e}")
+                                                    
                                                 st.rerun()
                         else:
                             st.info("No analysis available. Click 'Analyze' to generate one.")
@@ -423,8 +502,9 @@ def main() -> None:
                         if tasks:
                             for task in tasks:
                                 due_date_str = f" (Due: {task.due_date})" if task.due_date else ""
+                                synced_str = f" *[Synced: {format_datetime(task.created_at)}]*"
                                 new_completed = st.checkbox(
-                                    f"{task.description}{due_date_str}",
+                                    f"{task.description}{due_date_str}{synced_str}",
                                     value=task.completed,
                                     key=f"task-{task.id}"
                                 )
@@ -439,11 +519,23 @@ def main() -> None:
                     with tab5:
                         if logs:
                             for log in logs:
-                                status_color = "🟢" if log.status == CRMSyncStatus.SUCCESS else "🔴"
-                                st.markdown(f"**{status_color} {log.status.value}** - {format_datetime(log.created_at)}")
-                                if log.message:
-                                    st.caption(log.message)
-                                st.markdown("---")
+                                status_icon = "🟢" if log.status == CRMSyncStatus.SUCCESS else "🔴"
+                                time_str = format_datetime(log.created_at)
+                                label = f"{status_icon} {log.status.value} ({time_str})"
+                                
+                                with st.expander(label, expanded=(log.status != CRMSyncStatus.SUCCESS)):
+                                    st.caption(f"Timestamp: {log.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                                    
+                                    if log.message:
+                                        st.markdown("**Message:**")
+                                        if log.status == CRMSyncStatus.SUCCESS:
+                                            st.info(log.message)
+                                        else:
+                                            st.error(log.message)
+                                    
+                                    if log.payload:
+                                        st.markdown("**Debug Payload:**")
+                                        st.json(log.payload)
                         else:
                             st.info("No sync logs available.")
                 
