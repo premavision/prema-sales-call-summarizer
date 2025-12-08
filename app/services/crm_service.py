@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from sqlmodel import Session, select
 
@@ -16,7 +16,7 @@ class CRMService:
         self.session = session
         self.client = client
 
-    def sync_call(self, call_id: int) -> CRMSyncLog:
+    def sync_call(self, call_id: int, selected_action_items: Optional[List[str]] = None) -> CRMSyncLog:
         call = self.session.get(Call, call_id)
         if not call:
             raise ValueError(f"Call {call_id} not found")
@@ -32,7 +32,21 @@ class CRMService:
             if analysis.follow_up_message:
                 note_content += f"\n\nFollow-up draft:\n{analysis.follow_up_message}"
             note = self.client.create_note(call_id=call_id, content=note_content)
-            tasks = self.client.create_tasks(call_id=call_id, action_items=analysis.action_items)
+            # Deduplicate against existing tasks for this call (case-insensitive, trimmed)
+            existing_tasks = self.session.exec(
+                select(CRMTask).where(CRMTask.call_id == call_id)
+            ).all()
+            existing_descriptions = {
+                (t.description or "").strip().lower() for t in existing_tasks
+            }
+            deduped_items: List[str] = []
+            items_to_sync = selected_action_items if selected_action_items is not None else analysis.action_items
+            for item in items_to_sync:
+                normalized = (item or "").strip().lower()
+                if normalized and normalized not in existing_descriptions:
+                    deduped_items.append(item)
+                    existing_descriptions.add(normalized)
+            tasks = self.client.create_tasks(call_id=call_id, action_items=deduped_items)
 
             log = CRMSyncLog(
                 call_id=call_id,

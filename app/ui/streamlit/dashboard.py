@@ -241,6 +241,10 @@ def main() -> None:
             with st.container():
                 # Call header card
                 col1, col2, col3 = st.columns([3, 1, 1])
+                selected_key = f"selected_action_items_{call.id}"
+                if selected_key not in st.session_state:
+                    st.session_state[selected_key] = []
+                selected_action_items = st.session_state[selected_key]
                 
                 with col1:
                     status_emoji = get_status_color(call.status)
@@ -304,7 +308,7 @@ def main() -> None:
                     if st.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True):
                         with st.spinner("Syncing..."):
                             try:
-                                crm_service.sync_call(call.id)
+                                crm_service.sync_call(call.id, selected_action_items=selected_action_items)
                                 st.success("✅ Synced!")
                                 st.rerun()
                             except Exception as e:
@@ -316,7 +320,7 @@ def main() -> None:
                             try:
                                 transcription_service.transcribe_call(call.id)
                                 analysis_service.analyze_call(call.id)
-                                crm_service.sync_call(call.id)
+                                crm_service.sync_call(call.id, selected_action_items=selected_action_items)
                                 st.success("✅ All steps completed!")
                                 st.rerun()
                             except Exception as e:
@@ -369,51 +373,18 @@ def main() -> None:
                                 st.markdown("### ✅ Action Items")
                                 if analysis.action_items:
                                     st.caption("Check items to add them to your CRM Tasks list")
-                                    existing_task_descriptions = {
-                                        (t.description or "").strip().lower() for t in tasks
-                                    }
-                                    # Create a copy to iterate safely
                                     for i, item in enumerate(list(analysis.action_items)):
-                                        normalized_item = (item or "").strip().lower()
-                                        already_exists = normalized_item in existing_task_descriptions
-                                        # Use a checkbox that acts as a trigger
                                         is_checked = st.checkbox(
-                                            item, 
-                                            value=already_exists,
-                                            disabled=already_exists,
+                                            item,
+                                            value=item in selected_action_items,
                                             key=f"action-{call.id}-{i}",
-                                            help="Already added to CRM Tasks" if already_exists else None
                                         )
-                                        
-                                        if is_checked and not already_exists:
-                                            # Double-check in DB to avoid races/duplicates
-                                            existing_task = session.exec(
-                                                select(CRMTask).where(
-                                                    CRMTask.call_id == call.id,
-                                                    func.lower(CRMTask.description) == normalized_item
-                                                )
-                                            ).first()
-                                            
-                                            if existing_task:
-                                                st.info("Already in CRM Tasks")
-                                            else:
-                                                # Create CRM Task
-                                                new_task = CRMTask(
-                                                    call_id=call.id,
-                                                    description=item,
-                                                    completed=False
-                                                )
-                                                session.add(new_task)
-                                                
-                                                # Remove from action items
-                                                new_items = list(analysis.action_items)
-                                                if item in new_items:
-                                                    new_items.remove(item)
-                                                    analysis.action_items = new_items
-                                                    session.add(analysis)
-                                                
-                                                session.commit()
-                                                st.rerun()
+                                        if is_checked and item not in selected_action_items:
+                                            selected_action_items.append(item)
+                                            st.session_state[selected_key] = selected_action_items
+                                        if not is_checked and item in selected_action_items:
+                                            selected_action_items = [ai for ai in selected_action_items if ai != item]
+                                            st.session_state[selected_key] = selected_action_items
                                 else:
                                     st.info("No pending action items")
                                 
@@ -451,10 +422,9 @@ def main() -> None:
                     with tab4:
                         if tasks:
                             for task in tasks:
-                                status_icon = "✅" if task.completed else "⏳"
                                 due_date_str = f" (Due: {task.due_date})" if task.due_date else ""
                                 new_completed = st.checkbox(
-                                    f"{status_icon} {task.description}{due_date_str}",
+                                    f"{task.description}{due_date_str}",
                                     value=task.completed,
                                     key=f"task-{task.id}"
                                 )
