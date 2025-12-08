@@ -153,3 +153,4 @@ All UI tests are currently failing due to Streamlit server startup issues:
 2. Consider making Streamlit tests optional/skippable
 3. Add test markers to run API and UI tests separately
 4. Set up CI/CD pipeline with proper test environment
+

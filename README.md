@@ -20,22 +20,31 @@ Sales and CS teams lose context between calls. This prototype automates the capt
 
 ## Getting started
 ### Prerequisites
-- Python 3.11+
+- Python 3.11+ (specified in `.python-version` for pyenv users)
 - Optional: valid `OPENAI_API_KEY` if you want real Whisper/LLM behavior.
 
 ### Install
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+# Use Python 3.11 (specified in .python-version)
+python3.11 -m venv .venv  # or: python -m venv .venv (if python points to 3.11)
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
+**Note:** Always activate the virtual environment before running commands. If you see "command not found" errors, ensure `.venv/bin` is in your PATH or use `python -m <command>` instead. Using Python 3.11 ensures compatibility with all dependencies (especially pyarrow).
+
 Set values in `.env` as needed (e.g., `OPENAI_API_KEY`, `ASR_PROVIDER=whisper` to use OpenAI Whisper, otherwise defaults to stubs).
 
 ### Run FastAPI
+Make sure your virtual environment is activated, then:
 ```bash
 uvicorn app.main:app --reload
+```
+Or use the module form (works even if uvicorn isn't in PATH):
+```bash
+python -m uvicorn app.main:app --reload
 ```
 API docs: http://localhost:8000/docs
 
