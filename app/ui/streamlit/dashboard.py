@@ -1,5 +1,6 @@
 import io
 import sys
+import time
 import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -243,9 +244,9 @@ def main() -> None:
         if st.button("🔄 Refresh", use_container_width=True):
             st.rerun()
 
-    # Flash messages
-    if "flash_msgs" not in st.session_state:
-        st.session_state["flash_msgs"] = {}
+    # Initialize error state
+    if "call_errors" not in st.session_state:
+        st.session_state["call_errors"] = {}
 
     if not calls:
         st.info("📭 No calls found. Upload a new call to get started!")
@@ -256,15 +257,9 @@ def main() -> None:
                 # Call header card
                 col1, col2, col3 = st.columns([3, 1, 1])
                 
-                # Check for flash messages
-                flash_msg = st.session_state["flash_msgs"].pop(call.id, None)
-                if flash_msg:
-                    if flash_msg["type"] == "success":
-                        st.success(flash_msg["msg"])
-                    elif flash_msg["type"] == "warning":
-                        st.warning(flash_msg["msg"])
-                    elif flash_msg["type"] == "error":
-                        st.error(flash_msg["msg"])
+                # Check for persistent errors
+                if call.id in st.session_state["call_errors"]:
+                    st.error(st.session_state["call_errors"][call.id], icon="🚨")
 
                 selected_key = f"selected_action_items_{call.id}"
                 if selected_key not in st.session_state:
@@ -310,51 +305,60 @@ def main() -> None:
                 action_cols = st.columns(5)
                 
                 with action_cols[0]:
-                    if st.button("🎙️ Transcribe", key=f"t-{call.id}", use_container_width=True):
-                        with st.spinner("Transcribing..."):
-                            try:
-                                transcription_service.transcribe_call(call.id)
-                                st.success("✅ Transcribed!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error: {str(e)}")
+                    transcribe_container = st.empty()
+                    if transcribe_container.button("🎙️ Transcribe", key=f"t-{call.id}", use_container_width=True):
+                        transcribe_container.button("🎙️ Transcribing...", key=f"t-loading-{call.id}", disabled=True, use_container_width=True)
+                        try:
+                            transcription_service.transcribe_call(call.id)
+                            st.toast("✅ Transcribed successfully!", icon="✅")
+                            st.session_state["call_errors"].pop(call.id, None)
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            transcribe_container.button("🎙️ Transcribe", key=f"t-retry-{call.id}", use_container_width=True)
+                            st.session_state["call_errors"][call.id] = f"Transcription failed: {str(e)}"
+                            st.rerun()
                 
                 with action_cols[1]:
-                    if st.button("🧠 Analyze", key=f"a-{call.id}", use_container_width=True):
-                        with st.spinner("Analyzing..."):
-                            try:
-                                analysis_service.analyze_call(call.id)
-                                st.success("✅ Analyzed!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error: {str(e)}")
+                    analyze_container = st.empty()
+                    if analyze_container.button("🧠 Analyze", key=f"a-{call.id}", use_container_width=True):
+                        analyze_container.button("🧠 Analyzing...", key=f"a-loading-{call.id}", disabled=True, use_container_width=True)
+                        try:
+                            analysis_service.analyze_call(call.id)
+                            st.toast("✅ Analyzed successfully!", icon="✅")
+                            st.session_state["call_errors"].pop(call.id, None)
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            analyze_container.button("🧠 Analyze", key=f"a-retry-{call.id}", use_container_width=True)
+                            st.session_state["call_errors"][call.id] = f"Analysis failed: {str(e)}"
+                            st.rerun()
                 
                 with action_cols[2]:
-                    if st.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True):
+                    sync_container = st.empty()
+                    if sync_container.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True):
+                        sync_container.button("🔄 Syncing...", key=f"s-loading-{call.id}", disabled=True, use_container_width=True)
                         # Check follow-up status for warning
                         analysis_check = session.exec(select(CallAnalysis).where(CallAnalysis.call_id == call.id)).first()
                         
-                        with st.spinner("Syncing..."):
-                            try:
-                                crm_service.sync_call(call.id, selected_action_items=selected_action_items)
-                                
-                                # Clear any previous success flash messages
-                                if call.id in st.session_state["flash_msgs"]:
-                                    del st.session_state["flash_msgs"][call.id]
-                                
-                                if analysis_check and not analysis_check.follow_up_sent:
-                                    # Only show message if follow-up is NOT sent
-                                    st.session_state["flash_msgs"][call.id] = {
-                                        "type": "warning",
-                                        "msg": "✅ Synced! \n\n⚠ Note: Follow-up email was not marked as sent."
-                                    }
-                                else:
-                                    # If synced successfully and follow-up sent, show a transient toast instead of persistent success message
-                                    st.toast("✅ Synced with CRM!")
-                                
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error: {str(e)}")
+                        try:
+                            crm_service.sync_call(call.id, selected_action_items=selected_action_items)
+                            
+                            # Clear error if successful
+                            st.session_state["call_errors"].pop(call.id, None)
+                            
+                            if analysis_check and not analysis_check.follow_up_sent:
+                                # Only show message if follow-up is NOT sent
+                                st.toast("✅ Synced! Note: Follow-up email was not marked as sent.", icon="⚠️")
+                            else:
+                                st.toast("✅ Synced with CRM!", icon="✅")
+                            
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            sync_container.button("🔄 Sync CRM", key=f"s-retry-{call.id}", use_container_width=True)
+                            st.session_state["call_errors"][call.id] = f"CRM Sync failed: {str(e)}"
+                            st.rerun()
                 
                 # with action_cols[3]:
                 #     if st.button("⚡ Process All", key=f"p-{call.id}", use_container_width=True):
