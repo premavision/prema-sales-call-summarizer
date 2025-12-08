@@ -6,6 +6,7 @@ class CallStatus(str, Enum):
     TRANSCRIBED = "TRANSCRIBED"
     ANALYZED = "ANALYZED"
     SYNCED = "SYNCED"
+    COMPLETED = "COMPLETED"
 
 
 class CRMSyncStatus(str, Enum):

@@ -78,7 +78,7 @@ class CRMService:
                 created_at=datetime.utcnow(),
                 payload={"note_id": note.id, "task_ids": [t.id for t in tasks]},
             )
-            call.status = CallStatus.SYNCED
+            call.status = CallStatus.COMPLETED if getattr(analysis, "follow_up_sent", False) else CallStatus.SYNCED
             call.updated_at = datetime.utcnow()
             self.session.add(log)
             self.session.add(call)

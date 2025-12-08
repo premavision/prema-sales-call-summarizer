@@ -52,7 +52,8 @@ def get_status_color(status: CallStatus) -> str:
         CallStatus.NEW: "🔵",
         CallStatus.TRANSCRIBED: "🟡",
         CallStatus.ANALYZED: "🟠",
-        CallStatus.SYNCED: "🟢",
+        CallStatus.SYNCED: "☑️",
+        CallStatus.COMPLETED: "🟢",
     }
     return colors.get(status, "⚪")
 
@@ -84,6 +85,7 @@ def calculate_metrics(session: Session) -> dict:
     transcribed_calls = session.exec(select(func.count(Call.id)).where(Call.status == CallStatus.TRANSCRIBED)).one()
     analyzed_calls = session.exec(select(func.count(Call.id)).where(Call.status == CallStatus.ANALYZED)).one()
     synced_calls = session.exec(select(func.count(Call.id)).where(Call.status == CallStatus.SYNCED)).one()
+    completed_calls = session.exec(select(func.count(Call.id)).where(Call.status == CallStatus.COMPLETED)).one()
     
     # Recent calls (last 7 days)
     week_ago = datetime.utcnow() - timedelta(days=7)
@@ -97,6 +99,7 @@ def calculate_metrics(session: Session) -> dict:
         "transcribed": transcribed_calls,
         "analyzed": analyzed_calls,
         "synced": synced_calls,
+        "completed": completed_calls,
         "recent": recent_calls,
     }
 
@@ -216,7 +219,7 @@ def main() -> None:
     
     # Metrics Dashboard
     metrics = calculate_metrics(session)
-    metric_cols = st.columns(6)
+    metric_cols = st.columns(7)
     with metric_cols[0]:
         st.metric("Total Calls", metrics["total"])
     with metric_cols[1]:
@@ -228,6 +231,8 @@ def main() -> None:
     with metric_cols[4]:
         st.metric("Synced", metrics["synced"])
     with metric_cols[5]:
+        st.metric("Completed", metrics["completed"])
+    with metric_cols[6]:
         st.metric("Last 7 Days", metrics["recent"])
     
     st.markdown("---")
@@ -287,7 +292,8 @@ def main() -> None:
                         CallStatus.NEW: ("#3b82f6", "#dbeafe"),
                         CallStatus.TRANSCRIBED: ("#eab308", "#fef9c3"),
                         CallStatus.ANALYZED: ("#f97316", "#ffedd5"),
-                        CallStatus.SYNCED: ("#22c55e", "#dcfce7"),
+                        CallStatus.SYNCED: ("#0ea5e9", "#e0f2fe"),
+                        CallStatus.COMPLETED: ("#16a34a", "#dcfce7"),
                     }
                     color, bg_color = status_colors.get(call.status, ("#6b7280", "#f3f4f6"))
                     st.markdown(
@@ -304,9 +310,12 @@ def main() -> None:
                 # Action buttons
                 action_cols = st.columns(5)
                 
+                # Check if call is completed to disable actions
+                is_completed = call.status == CallStatus.COMPLETED
+                
                 with action_cols[0]:
                     transcribe_container = st.empty()
-                    if transcribe_container.button("🎙️ Transcribe", key=f"t-{call.id}", use_container_width=True):
+                    if transcribe_container.button("🎙️ Transcribe", key=f"t-{call.id}", use_container_width=True, disabled=is_completed):
                         transcribe_container.button("🎙️ Transcribing...", key=f"t-loading-{call.id}", disabled=True, use_container_width=True)
                         try:
                             transcription_service.transcribe_call(call.id)
@@ -321,7 +330,7 @@ def main() -> None:
                 
                 with action_cols[1]:
                     analyze_container = st.empty()
-                    if analyze_container.button("🧠 Analyze", key=f"a-{call.id}", use_container_width=True):
+                    if analyze_container.button("🧠 Analyze", key=f"a-{call.id}", use_container_width=True, disabled=is_completed):
                         analyze_container.button("🧠 Analyzing...", key=f"a-loading-{call.id}", disabled=True, use_container_width=True)
                         try:
                             analysis_service.analyze_call(call.id)
@@ -336,7 +345,7 @@ def main() -> None:
                 
                 with action_cols[2]:
                     sync_container = st.empty()
-                    if sync_container.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True):
+                    if sync_container.button("🔄 Sync CRM", key=f"s-{call.id}", use_container_width=True, disabled=is_completed):
                         sync_container.button("🔄 Syncing...", key=f"s-loading-{call.id}", disabled=True, use_container_width=True)
                         # Check follow-up status for warning
                         analysis_check = session.exec(select(CallAnalysis).where(CallAnalysis.call_id == call.id)).first()
@@ -477,8 +486,12 @@ def main() -> None:
                                             if st.button("Mark as Sent", key=f"mark-sent-{call.id}"):
                                                 analysis.follow_up_sent = True
                                                 analysis.follow_up_sent_at = datetime.utcnow()
-                                                if call.status != CallStatus.ANALYZED:
+                                                
+                                                if call.status == CallStatus.SYNCED:
+                                                    call.status = CallStatus.COMPLETED
+                                                elif call.status != CallStatus.ANALYZED and call.status != CallStatus.COMPLETED:
                                                     call.status = CallStatus.ANALYZED
+                                                
                                                 session.add(analysis)
                                                 session.add(call)
                                                 session.commit()
