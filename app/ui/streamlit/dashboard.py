@@ -340,7 +340,7 @@ def main() -> None:
                     with tab1:
                         if transcript and transcript.text:
                             st.markdown("### Full Transcript")
-                            st.text_area("", transcript.text, height=300, key=f"transcript-{call.id}", disabled=True)
+                            st.text_area("Transcript", transcript.text, height=300, key=f"transcript-{call.id}", disabled=True, label_visibility="hidden")
                         else:
                             st.info("No transcript available. Click 'Transcribe' to generate one.")
                     
@@ -373,7 +373,7 @@ def main() -> None:
                                 
                                 if analysis.follow_up_message:
                                     st.markdown("### 💬 Follow-up Draft")
-                                    st.text_area("", analysis.follow_up_message, height=200, key=f"followup-{call.id}", disabled=True)
+                                    st.text_area("Follow-up Message", analysis.follow_up_message, height=200, key=f"followup-{call.id}", disabled=True, label_visibility="hidden")
                         else:
                             st.info("No analysis available. Click 'Analyze' to generate one.")
                     
