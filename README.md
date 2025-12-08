@@ -20,7 +20,7 @@ Sales and CS teams lose context between calls. This prototype automates the capt
 
 ## Getting started
 ### Prerequisites
-- Python 3.11+
+- Python 3.11+ (specified in `.python-version` for pyenv users)
 - Optional: valid `OPENAI_API_KEY` if you want real Whisper/LLM behavior.
 
 ### Install
