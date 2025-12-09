@@ -1,0 +1,13 @@
+Hi, this is Den from Prema Vision. Thanks for taking the time today. Before we dive in, I’d love to get a quick overview of what you’re currently using for workflow automation and where the main bottlenecks are.
+
+From what you mentioned earlier, it sounds like your team spends a lot of time manually summarizing customer calls, updating your CRM, and sharing tasks internally. Usually, when I hear that, it means two things: first, the process slows down follow-ups, and second, important details sometimes slip through the cracks. Let me know if that resonates.
+
+In terms of what you’re looking for, I heard three priorities: improving response time, reducing manual data entry, and having more consistent notes for your sales team. Did I miss anything?
+
+Now, regarding pricing — we typically offer a flexible tier depending on volume. For smaller teams, the starter plan is usually enough, but for companies that have more than a hundred calls per month, the pro plan tends to be a better fit because it includes automated CRM syncing and priority support. I can walk you through that after the call.
+
+A quick concern I want to address: the integration process is pretty lightweight. You won’t need engineering resources on your side. Most clients fully onboard within a day. The only limitation to be aware of is that certain CRM fields might need initial mapping, but we guide you through that.
+
+Before we wrap up, here are the next steps that I’d suggest: I’ll send you a detailed pricing comparison with a recommendation based on your volume, I’ll share our onboarding playbook, and we can schedule a technical validation call with your operations team. Does that work for you?
+
+Great — thanks again for your time. I'll follow up with the summary and next steps right after this call.
