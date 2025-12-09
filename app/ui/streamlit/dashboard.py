@@ -16,7 +16,7 @@ from sqlmodel import Session, select, func
 
 from app.core.config import get_settings
 from app.core.constants import CallStatus, CRMSyncStatus
-from app.db.session import engine, reset_db
+from app.db.session import engine, reset_db, create_db_and_tables
 from app.models import Call, Transcript, CallAnalysis, CRMNote, CRMTask, CRMSyncLog
 from app.services.call_service import CallService
 from app.services.transcription_service import TranscriptionService
@@ -122,6 +122,9 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="auto"
     )
+
+    # Ensure database tables exist
+    create_db_and_tables()
 
     # Initialize Session ID for isolation
     if "session_id" not in st.session_state:
