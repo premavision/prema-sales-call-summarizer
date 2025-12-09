@@ -623,6 +623,7 @@ def main() -> None:
                                     # Follow-up Actions
                                     st.markdown("---")
                                     st.markdown("#### Actions")
+                                    st.info("To complete the call workflow, mark the follow-up email as sent below.")
                                     
                                     # Prepare mailto link
                                     subject = urllib.parse.quote(f"Follow-up: {call.title}")
