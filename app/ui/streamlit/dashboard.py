@@ -287,12 +287,12 @@ def main() -> None:
                         audio_path=audio_path,
                         session_id=st.session_state.session_id if settings.demo_mode else None
                     )
-                    st.success(f"✅ Call created successfully! ID: {new_call.id}")
+                    st.success(f"Call created successfully! ID: {new_call.id}")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Error creating call: {str(e)}")
+                    st.error(f"Error creating call: {str(e)}")
             elif submitted:
-                st.warning("⚠️ Please fill in required fields (Title and Audio File)")
+                st.warning("Please fill in required fields (Title and Audio File)")
         
         st.markdown("---")
         st.header("🔍 Filters")
@@ -309,7 +309,7 @@ def main() -> None:
             st.markdown("### Database")
             if st.button("🧨 Reset Database", type="primary", use_container_width=True):
                 reset_db()
-                st.success("✅ Database reset successfully!")
+                st.success("Database reset successfully!")
                 st.rerun()
     
     # Metrics Dashboard
@@ -495,7 +495,7 @@ def main() -> None:
                         transcribe_container.button("🎙️ ...", key=f"t-loading-{call.id}", disabled=True, use_container_width=True)
                         try:
                             transcription_service.transcribe_call(call.id)
-                            st.toast("✅ Transcribed successfully!", icon="✅")
+                            st.toast("Transcribed successfully!", icon="✅")
                             st.session_state["call_errors"].pop(call.id, None)
                             time.sleep(1)
                             st.rerun()
@@ -510,7 +510,7 @@ def main() -> None:
                         analyze_container.button("🧠 ...", key=f"a-loading-{call.id}", disabled=True, use_container_width=True)
                         try:
                             analysis_service.analyze_call(call.id)
-                            st.toast("✅ Analyzed successfully!", icon="✅")
+                            st.toast("Analyzed successfully!", icon="✅")
                             st.session_state["call_errors"].pop(call.id, None)
                             time.sleep(1)
                             st.rerun()
@@ -528,7 +528,7 @@ def main() -> None:
                         try:
                             crm_service.sync_call(call.id, selected_action_items=selected_action_items)
                             st.session_state["call_errors"].pop(call.id, None)
-                            st.toast("✅ Synced with CRM!", icon="✅")
+                            st.toast("Synced with CRM!", icon="✅")
                             time.sleep(1)
                             st.rerun()
                         except Exception as e:
@@ -636,7 +636,7 @@ def main() -> None:
                                         
                                     with col_sent:
                                         if analysis.follow_up_sent:
-                                            st.success(f"✅ Sent {format_datetime(analysis.follow_up_sent_at)}")
+                                            st.success(f"Sent {format_datetime(analysis.follow_up_sent_at)}")
                                         else:
                                             if st.button("Mark Sent", key=f"mark-sent-{call.id}"):
                                                 analysis.follow_up_sent = True
