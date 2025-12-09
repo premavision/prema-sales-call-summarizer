@@ -21,10 +21,14 @@ load_dotenv()
 
 # Sync Streamlit secrets to environment variables (Streamlit Cloud)
 # This allows using st.secrets to provide env vars that Pydantic Settings will pick up
-if hasattr(st, "secrets"):
-    for key, value in st.secrets.items():
-        if isinstance(value, (str, int, float, bool)):
-            os.environ[key] = str(value)
+try:
+    if hasattr(st, "secrets"):
+        for key, value in st.secrets.items():
+            if isinstance(value, (str, int, float, bool)):
+                os.environ[key] = str(value)
+except Exception:
+    # Secrets file not found (local execution without secrets.toml), ignore
+    pass
 
 from app.core.config import get_settings
 from app.core.constants import CallStatus, CRMSyncStatus
