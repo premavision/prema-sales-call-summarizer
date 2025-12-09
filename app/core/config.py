@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     cors_origins: str = Field("http://localhost:8000,http://localhost:8501", description="Comma-separated CORS origins")
     max_upload_size_mb: int = Field(100, description="Maximum file upload size in MB")
 
+    backend_url: str = Field("http://localhost:8000", description="Public URL of the backend API")
+
 
 @lru_cache
 def get_settings() -> Settings:
