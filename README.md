@@ -1,109 +1,214 @@
-# Prema Vision | Sales Call Summarizer & CRM Sync
+# Prema Sales Call Summarizer
 
-Portfolio-grade mini-product that ingests sales/CS call recordings, transcribes them, extracts insights with an LLM, and syncs notes/tasks to a CRM (fake CRM for MVP). Built with FastAPI, SQLModel/SQLite, and Streamlit.
+**AI-powered sales intelligence that captures, analyzes, and syncs call data to your CRM automatically.**
 
-## Why this exists
-Sales and CS teams lose context between calls. This prototype automates the capture of what happened, risks, and next steps, and pushes structured updates into a CRM-friendly shape. It is intentionally small but realistic so it can be piloted or extended into a production integration.
+> Built by **Prema Vision LLC**, an AI automation consultancy led by **Denys Korolkov**.
 
-## Architecture
-- Calls uploaded via FastAPI or the Streamlit dashboard are stored on disk (`data/audio`) and registered in SQLite.
-- Transcription workflow delegates to a pluggable `TranscriptionClient` (Whisper via OpenAI or stub) and stores results.
-- Analysis workflow delegates to a pluggable `LLMClient` (OpenAI Chat or stub) with a focused prompt to produce summary bullets, risks/objections, action items, and a follow-up draft.
-- CRM sync delegates to a `CRMClient`; the default `FakeCRMClient` writes notes/tasks to local tables and logs sync attempts. Real HubSpot/Pipedrive/Salesforce clients can be slotted in without changing business logic.
-- FastAPI exposes a thin API on top of services; Streamlit reads/writes via the same services for a quick demo UI.
+## ⭐ Live Demo
 
-### High-level flow
-1) Upload call (metadata + audio) → audio saved under `data/audio`, row added to `call` table.  
-2) Transcribe → `TranscriptionClient` produces text/metadata, stored in `transcript`, call status → TRANSCRIBED.  
-3) Analyze → `LLMClient` generates structured insights/actions, stored in `callanalysis`, call status → ANALYZED.  
-4) CRM sync → `CRMClient` pushes summary/tasks (fake client stores locally), sync log recorded, call status → SYNCED.
+- **Web UI:** [https://prema-sales-call-summarizer.onrender.com](https://prema-sales-call-summarizer.onrender.com)
+- **API Docs (Swagger):** [https://prema-sales-call-summarizer.onrender.com/docs](https://prema-sales-call-summarizer.onrender.com/docs)
+*(Note: API docs availability depends on deployment configuration)*
 
-## Getting started
+## ⭐ Walkthrough
+
+![Happy Path](https://share.cleanshot.com/k394QYnG+)
+
+## ⭐ Screenshots
+
+![Summarizer](https://share.cleanshot.com/Q6lzp6Dl+)
+
+---
+
+## Elevator Pitch
+
+Sales teams lose 60% of critical customer context the moment a call ends. **Prema Sales Call Summarizer** is an automated intelligence layer that ingests audio, extracts high-value business insights, and syncs structured data directly to your CRM. It eliminates manual data entry and ensures risk factors and action items are captured accurately. This solution bridges the gap between conversation and system of record.
+
+## Why This Project Matters
+
+This project demonstrates how AI can operationalize sales intelligence without requiring changes to the team's existing workflow. For high-velocity sales and customer success teams, data integrity is the bottleneck to scaling.
+
+- **Sales Ops:** Eliminates "shadow CRM" where data lives in reps' heads.
+- **RevOps:** Provides structured data for objection handling and product feedback loops.
+- **Management:** Offers auditable, AI-generated summaries for coaching and deal reviews.
+
+## Core Features
+
+- **Multi-Format Audio Ingestion:** Supports MP3, WAV, M4A via secure upload.
+- **Enterprise-Grade Transcription:** Utilizes OpenAI Whisper for near-human accuracy.
+- **Context-Aware AI Analysis:** Extracts executive summaries, key pain points, and objection handling patterns.
+- **Automated Follow-up:** Generates draft emails based on call context.
+- **CRM Sync Layer:** Pushes structured data to CRM (stubbed for demo, architecture-ready for HubSpot/Salesforce).
+- **Dual Interface:** Robust REST API for integrations + dedicated Streamlit dashboard for manual usage.
+
+## Architecture Overview
+
+The system follows a modular service-oriented architecture designed for scalability and maintainability. The architecture separates ingestion, transcription, analysis, and CRM sync into modular services, enabling easy scaling and replacement of components.
+
+```mermaid
+graph TD
+    subgraph Frontend
+        UI[Streamlit Dashboard]
+        API_Client[External API Client]
+    end
+
+    subgraph Backend ["FastAPI Backend"]
+        Router[API Routes]
+        
+        subgraph Services ["Core Services"]
+            CallSvc[Call Service]
+            TransSvc[Transcription Service]
+            AnalSvc[Analysis Service]
+            CRMSvc[CRM Sync Service]
+        end
+        
+        Storage[Audio File Storage]
+        DB[(PostgreSQL / SQLite)]
+    end
+
+    subgraph External ["External Providers"]
+        OpenAI[OpenAI API<br/>(Whisper & GPT-4)]
+        CRM[CRM System<br/>(HubSpot / Salesforce)]
+    end
+
+    UI -->|HTTP Requests| Router
+    API_Client -->|HTTP Requests| Router
+    
+    Router --> CallSvc
+    Router --> TransSvc
+    Router --> AnalSvc
+    Router --> CRMSvc
+
+    CallSvc -->|Read/Write| DB
+    CallSvc -->|Save| Storage
+    
+    TransSvc -->|Audio| OpenAI
+    TransSvc -->|Update| DB
+    
+    AnalSvc -->|Transcript| OpenAI
+    AnalSvc -->|Update| DB
+    
+    CRMSvc -->|Push Data| CRM
+    CRMSvc -->|Log Status| DB
+```
+
+## Data Flow
+
+```mermaid
+graph TD
+    A[User/Client] -->|Upload Audio| B(FastAPI / Streamlit)
+    B -->|Save File| C[Audio Storage]
+    B -->|Create Record| D[(Database)]
+    
+    subgraph AI Pipeline
+    E[Transcription Service] -->|Send audio| F[Whisper Model]
+    F -->|Transcript| E
+    G[Analysis Service] -->|Transcript| H[LLM (GPT-4)]
+    H -->|Insights| G
+    end
+    
+    B -->|Trigger| E
+    E -->|Update DB| D
+    B -->|Trigger| G
+    G -->|Update DB| D
+    
+    subgraph Integrations
+    I[CRM Service] -->|Sync Data| J[External CRM]
+    end
+    
+    B -->|Sync| I
+    I -->|Log Status| D
+```
+
+## Tech Stack
+
+- **Backend:** Python 3.11, FastAPI, Pydantic
+- **Data Layer:** SQLModel (SQLAlchemy), SQLite (Dev), PostgreSQL (Prod)
+- **Frontend:** Streamlit
+- **AI Services:** OpenAI Whisper (ASR), GPT-4o-mini (LLM)
+- **Testing:** Pytest, Playwright (E2E)
+- **Deployment:** Render (Docker/Python runtime)
+
+## Setup & Running
+
 ### Prerequisites
-- Python 3.11+ (specified in `.python-version` for pyenv users)
-- Optional: valid `OPENAI_API_KEY` if you want real Whisper/LLM behavior.
 
-### Install
+- Python 3.11+
+- OpenAI API Key (optional for stub mode)
+
+### Installation
+
 ```bash
-# Use Python 3.11 (specified in .python-version)
-python3.11 -m venv .venv  # or: python -m venv .venv (if python points to 3.11)
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# Clone the repository
+git clone <repo-url>
+cd prema-sales-call-summarizer
+
+# Create virtual environment
+python3.11 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
+
+# Environment Setup
 cp .env.example .env
+# Edit .env to add your OPENAI_API_KEY
 ```
 
-**Note:** Always activate the virtual environment before running commands. If you see "command not found" errors, ensure `.venv/bin` is in your PATH or use `python -m <command>` instead. Using Python 3.11 ensures compatibility with all dependencies (especially pyarrow).
+### Running the Application
 
-Set values in `.env` as needed (e.g., `OPENAI_API_KEY`, `ASR_PROVIDER=whisper` to use OpenAI Whisper, otherwise defaults to stubs).
-
-### Run FastAPI
-Make sure your virtual environment is activated, then:
-```bash
-uvicorn app.main:app --reload
-```
-Or use the module form (works even if uvicorn isn't in PATH):
-```bash
-python -m uvicorn app.main:app --reload
-```
-API docs: http://localhost:8000/docs
-
-### Run Streamlit dashboard
+**Option 1: Dedicated Dashboard (UI)**
 ```bash
 streamlit run app/ui/streamlit/dashboard.py
 ```
-Upload a sample audio file (place under `data/audio` if you want to reference it) and trigger transcribe → analyze → sync actions from the UI.
+*Access at http://localhost:8501*
 
-## API quickstart
-- Health: `GET /health`
-- Create call (multipart): `POST /calls` with form fields `title`, `recorded_at` (ISO), optional `participants`, `call_type`, etc., plus `audio_file`.
-- Transcribe: `POST /calls/{id}/transcribe`
-- Analyze: `POST /calls/{id}/analyze`
-- Sync CRM: `POST /calls/{id}/sync-crm`
-- Full pipeline: `POST /calls/{id}/process`
-
-Example (after running uvicorn):
+**Option 2: REST API (Backend)**
 ```bash
-curl -F "title=Demo call" \
-     -F "recorded_at=2024-01-01T12:00:00" \
-     -F "participants=Alex,Sam" \
-     -F "call_type=discovery" \
-     -F "audio_file=@data/audio/sample.wav" \
-     http://localhost:8000/calls
+uvicorn app.main:app --reload
+```
+*Docs at http://localhost:8000/docs*
+
+## How to Use (Step-by-Step)
+
+1.  **Upload:** Navigate to the "Upload New Call" sidebar. Enter call metadata and upload an audio file.
+2.  **Transcribe:** Click the **🎙️ Transcribe** button on the call card. The system processes the audio and generates a verbatim transcript.
+3.  **Analyze:** Click **🧠 Analyze**. The LLM extracts insights, pain points, and drafts a follow-up email.
+4.  **Review & Edit:** Edit the generated email draft if needed. Select specific "Action Items" to track.
+5.  **Sync:** Click **🔄 Sync CRM**. Data is pushed to the CRM system (simulated in this demo) and the status updates to `SYNCED`.
+
+## API Examples
+
+**Create a Call**
+```bash
+curl -X POST "http://localhost:8000/api/v1/calls/" \
+  -F "title=Discovery with Acme" \
+  -F "audio_file=@recording.mp3"
 ```
 
-## Testing
-
-### Unit and Integration Tests
+**Trigger Analysis**
 ```bash
-pytest
-```
-Tests cover call creation, transcription workflow (stub client), analysis workflow (stub LLM), and CRM sync (fake client).
-
-### End-to-End Tests
-Comprehensive E2E tests using Playwright cover both the FastAPI backend and Streamlit frontend:
-
-```bash
-# Install Playwright browsers first
-playwright install chromium
-
-# Run all E2E tests
-pytest tests/e2e/ -v
-
-# Run only API E2E tests
-pytest tests/e2e/test_api_endpoints.py -v
-
-# Run only UI E2E tests
-pytest tests/e2e/test_streamlit_ui.py -v
+curl -X POST "http://localhost:8000/api/v1/calls/{call_id}/analyze"
 ```
 
-See [tests/e2e/README.md](tests/e2e/README.md) for detailed documentation on E2E tests, including:
-- Complete test coverage (42 tests: 25 API + 17 UI)
-- Test organization and structure
-- Running and debugging tests
-- CI/CD integration examples
+## Who This Is For
 
-## Notes on privacy and deployment
-- Call recordings and transcripts are sensitive; by default they stay on disk (`data/audio`) and in local SQLite. If using external providers (OpenAI), data leaves the machine—confirm compliance with client policies.
-- For pilots, deploy on client-owned infrastructure or VPC; swap in real CRM clients by implementing `CRMClient` and wiring via config without touching services.
-- Environment-driven configuration keeps secrets out of code; see `.env.example`.
+- **CTOs & Engineering Leads:** Looking for a reference architecture for AI-driven workflow automation.
+- **Founders:** Evaluating the feasibility of custom sales AI tools.
+- **Sales Operations:** Seeking to automate CRM data entry and improve data quality.
+
+## Extensibility & Future Enhancements
+
+- **Real-time Processing:** Streaming transcription for live call assistance.
+- **Vector embeddings (optional integration-ready):** Querying past calls for competitive intelligence.
+- **Native Integrations:** Direct OAuth connections to HubSpot, Salesforce, and Pipedrive.
+- **Multi-Tenant Support:** Architecture supports schema isolation for SaaS deployment.
+
+## Contact
+
+**Denys Korolkov** — Prema Vision LLC
+
+📧 [denys@premavision.net](mailto:denys@premavision.net)
+
+🌐 [https://premavision.net](https://premavision.net)
