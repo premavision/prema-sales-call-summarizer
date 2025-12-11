@@ -12,7 +12,7 @@
 
 ## ⭐ Walkthrough
 
-[User Happy Path](https://share.cleanshot.com/8KDfSKGM+)
+![User Happy Path](https://share.cleanshot.com/8KDfSKGM+)
 
 ## ⭐ Screenshots
 
