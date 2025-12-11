@@ -67,8 +67,8 @@ graph TD
     end
 
     subgraph External ["External Providers"]
-        OpenAI[OpenAI API<br/>(Whisper & GPT-4)]
-        CRM[CRM System<br/>(HubSpot / Salesforce)]
+        OpenAI["OpenAI API<br/>(Whisper & GPT-4)"]
+        CRM["CRM System<br/>(HubSpot / Salesforce)"]
     end
 
     UI -->|HTTP Requests| Router
@@ -103,7 +103,7 @@ graph TD
     subgraph AI Pipeline
     E[Transcription Service] -->|Send audio| F[Whisper Model]
     F -->|Transcript| E
-    G[Analysis Service] -->|Transcript| H[LLM (GPT-4)]
+    G[Analysis Service] -->|Transcript| H["LLM (GPT-4)"]
     H -->|Insights| G
     end
     
