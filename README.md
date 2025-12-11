@@ -6,13 +6,13 @@
 
 ## ⭐ Live Demo
 
-- **Web UI:** [https://prema-sales-call-summarizer.onrender.com](https://prema-sales-call-summarizer.onrender.com)
+- **Web UI:** [https://prema-sales-call-summarizer.streamlit.app](https://prema-sales-call-summarizer.streamlit.app)
 - **API Docs (Swagger):** [https://prema-sales-call-summarizer.onrender.com/docs](https://prema-sales-call-summarizer.onrender.com/docs)
 *(Note: API docs availability depends on deployment configuration)*
 
 ## ⭐ Walkthrough
 
-[User Happy Path](https://share.cleanshot.com/k394QYnG)
+[User Happy Path](https://share.cleanshot.com/8KDfSKGM+)
 
 ## ⭐ Screenshots
 
