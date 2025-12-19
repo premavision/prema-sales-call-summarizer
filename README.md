@@ -4,7 +4,13 @@
 
 > Built by **Prema Vision LLC**, an AI automation consultancy led by **Denys Korolkov**.
 
-## ⭐ Live Demo
+## ⭐ Demo
+
+🎬 Live Demo (2 min)
+
+▶️ Watch demo: [https://youtu.be/i-79cnPB1Vk](https://youtu.be/i-79cnPB1Vk) (Unlisted)
+
+This short walkthrough shows how a sales call is uploaded, transcribed, analyzed, and converted into structured CRM-ready insights — with a human always in control.
 
 - **Web UI:** [https://prema-sales-call-summarizer.streamlit.app](https://prema-sales-call-summarizer.streamlit.app)
 - **API Docs (Swagger):** [https://prema-sales-call-summarizer.onrender.com/docs](https://prema-sales-call-summarizer.onrender.com/docs)
